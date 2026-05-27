@@ -57,8 +57,8 @@ static class TileManager {
     /// </summary>
     public static Sprite GetSprite(Tile tile, int x = 0, int y = 0) {
         if (HasMultiSprite(tile)) {
-            int xTilingIndex = x % GetXRepeats(tile);
-            int yTilingIndex = y % GetYRepeats(tile);
+            int xTilingIndex = Math.Abs(x % GetXRepeats(tile));
+            int yTilingIndex = Math.Abs(y % GetYRepeats(tile));
 
             return MultiSprites[tile][xTilingIndex, yTilingIndex];
         }

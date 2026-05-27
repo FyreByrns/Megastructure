@@ -10,8 +10,9 @@ class TilemapStack {
             return Stack[index.Elevation][index.LayerCoordinate];
         }
         set {
-            if (index.Elevation >= Layers)
+            if (index.Elevation >= Layers) {
                 return;
+            }
 
             Stack[index.Elevation][index.LayerCoordinate] = value;
         }
@@ -40,7 +41,7 @@ class TilemapStack {
     /// Register a tilemap change to happen at the end of this tick.
     /// </summary>
     public void RegisterChange(TilestackCoordinate at, Tile to) {
-        if(to == Tile.NONE) {
+        if (to == Tile.NONE) {
             Removals.Add(at);
             return;
         }
@@ -48,15 +49,22 @@ class TilemapStack {
         Changes.Add(new(at, to));
     }
     public void ApplyChanges() {
-        foreach(var removal in Removals) {
+        if (Removals.Count <= 0 && Changes.Count <= 0) {
+            return;
+        } // don't bother trying to loop if there's nothing to loop over
+
+        foreach (var removal in Removals) {
             this[removal] = Tile.NONE;
         }
         Removals.Clear();
-        
+
         foreach (var change in Changes) {
             this[change.At] = change.To;
         }
         Changes.Clear();
+        foreach (Tilemap t in Stack) {
+            t.Tiles.Collapse();
+        }
     }
 
     public bool CanMoveTile(TilestackCoordinate from, TilestackCoordinate to, params TilestackCoordinate[] ignoreTiles) {
@@ -95,13 +103,13 @@ class TilemapStack {
     /// Find the elevation the first solid tile from the top is in.
     /// "raycasts" downwards and returns the first hit z.
     /// </summary>
-    public int FindTop(int x, int y ) {
+    public int FindTop(int x, int y) {
         int result = TopLayer;
 
-        for(int i = result; i >= 0; i--) {
+        for (int i = result; i >= 0; i--) {
             Tile at = Stack[i][new(x, y)];
-            
-            if(!TileManager.CanMoveThrough(at)) {
+
+            if (!TileManager.CanMoveThrough(at)) {
                 return i;
             }
 

@@ -163,6 +163,8 @@ class Engine : Game {
                 DrawLine(new(ScreenWidth - 16, ScreenHeight - TileSize * (i + 1)), new(ScreenWidth - 16, ScreenHeight - TileSize * i - 1), Pixel.Presets.Mint);
             }
         }
+
+        CurrentFloor.Stack[1].Tiles.DDR();
     }
 
     public override void OnCreate() {
@@ -238,24 +240,33 @@ class Engine : Game {
         Entities.Entities.Add(player);
     }
 
+    bool playerMoved = false;
     int _playerMoveAccumulator = 0;
     int PlayerMoveTicks = 10;
+    int xMove = 0;
+    int yMove = 0;
     public void PlayerMove(Entity entity) {
         _playerMoveAccumulator++;
+
+        if (GetKey(Key.W).Down) { yMove += -1; }
+        if (GetKey(Key.S).Down) { yMove += +1; }
+        if (GetKey(Key.A).Down) { xMove += -1; }
+        if (GetKey(Key.D).Down) { xMove += +1; }
+
+        if(playerMoved && _playerMoveAccumulator <= PlayerMoveTicks / 2) {
+            xMove = 0;
+            yMove = 0;
+        } // don't persist player movement from a previous move
 
         while (_playerMoveAccumulator >= PlayerMoveTicks) {
             _playerMoveAccumulator -= PlayerMoveTicks;
 
-            int xMove = 0;
-            int yMove = 0;
-
-            if (GetKey(Key.W).Down) { yMove += -1; }
-            if (GetKey(Key.S).Down) { yMove += +1; }
-            if (GetKey(Key.A).Down) { xMove += -1; }
-            if (GetKey(Key.D).Down) { xMove += +1; }
-
-            if ((xMove != 0 || yMove != 0)) {
-                entity.MoveTiles(new(xMove, yMove, 0), CurrentFloor);
+            playerMoved = false;
+            if (xMove != 0 || yMove != 0) {
+                entity.MoveTiles(new(Math.Sign(xMove), Math.Sign(yMove), 0), CurrentFloor);
+                xMove = 0;
+                yMove = 0;
+                playerMoved = true;
             }
         }
     }
