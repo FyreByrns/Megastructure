@@ -18,6 +18,10 @@ class Entity {
     public void MoveTiles(TilestackCoordinate change, TilemapStack map) {
         TilestackCoordinate[] ignore = OwnedTiles.ToArray();
 
+        if (map == Instance.CurrentFloor) {
+            Instance.MarkTilesDirty(OwnedTiles);
+        }
+
         foreach (var coord in OwnedTiles) {
             if (!map.CanMoveTile(coord, coord + change, ignore)) {
                 if (map.CanMoveTile(coord, coord + change.OnlyX, ignore)) {
@@ -40,6 +44,10 @@ class Entity {
 
         for (int i = 0; i < OwnedTiles.Count; i++) {
             OwnedTiles[i] += change;
+        }
+
+        if (map == Instance.CurrentFloor) {
+            Instance.MarkTilesDirty(OwnedTiles);
         }
     }
 

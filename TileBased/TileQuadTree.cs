@@ -41,40 +41,15 @@ class TileQuadTree {
         } // can't divide
 
         if (HasNoLeaves) { // only subdivide if there are no leaves yet
-            Console.WriteLine($"Subdividing from [({Bounds.Left}, {Bounds.Top}), ({Bounds.Right}, {Bounds.Bottom}) w{Bounds.Width}] to:");
-
             TL = new(new(Bounds.Left, Bounds.Top, Bounds.MidX, Bounds.MidY));
-            Console.WriteLine($"\t [({TL.Bounds.Left}, {TL.Bounds.Top}), ({TL.Bounds.Right}, {TL.Bounds.Bottom}) w{TL.Bounds.Width}]");
             TR = new(new(Bounds.MidX, Bounds.Top, Bounds.Right, Bounds.MidY));
-            Console.WriteLine($"\t [({TR.Bounds.Left}, {TR.Bounds.Top}), ({TR.Bounds.Right}, {TR.Bounds.Bottom}) w{TR.Bounds.Width}]");
             BL = new(new(Bounds.Left, Bounds.MidY, Bounds.MidX, Bounds.Bottom));
-            Console.WriteLine($"\t [({BL.Bounds.Left}, {BL.Bounds.Top}), ({BL.Bounds.Right}, {BL.Bounds.Bottom}) w{BL.Bounds.Width}]");
             BR = new(new(Bounds.MidX, Bounds.MidY, Bounds.Right, Bounds.Bottom));
-            Console.WriteLine($"\t [({BR.Bounds.Left}, {BR.Bounds.Top}), ({BR.Bounds.Right}, {BR.Bounds.Bottom}) w{BR.Bounds.Width}]");
 
             return true;
         }
 
         return false;
-    }
-
-    public void DDR() {
-        //if (Bounds.Width > 1) {
-        Instance.DrawLine(
-            new((Bounds.Left - Instance.TileScreenMinX) * TileSize,
-                (Bounds.Top - Instance.TileScreenMinY) * TileSize),
-            new((Bounds.Right - Instance.TileScreenMinX) * TileSize,
-                (Bounds.Top - Instance.TileScreenMinY) * TileSize), PixelEngine.Pixel.Presets.White);
-        Instance.DrawLine(
-            new((Bounds.Left - Instance.TileScreenMinX) * TileSize,
-                (Bounds.Top - Instance.TileScreenMinY) * TileSize),
-            new((Bounds.Left - Instance.TileScreenMinX) * TileSize,
-                (Bounds.Bottom - Instance.TileScreenMinY) * TileSize), PixelEngine.Pixel.Presets.White);
-        TL?.DDR();
-        TR?.DDR();
-        BL?.DDR();
-        BR?.DDR();
-        //}
     }
 
     public Tile GetTile(TilemapCoordinate coordinate) {

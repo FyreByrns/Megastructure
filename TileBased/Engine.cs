@@ -25,6 +25,10 @@ class Engine : Game {
     public int TileScreenMinY = 0;
     public int TileScreenMaxX = 0;
     public int TileScreenMaxY = 0;
+    public IntegerAABB ScreenBounds => new(TileScreenMinX, TileScreenMinY, TileScreenMaxX, TileScreenMaxY);
+
+    bool screenTilesChanging = false;
+    public bool ScreenTilesChanged = false;
 
     /// <summary>
     /// The level the player is currently in.
@@ -37,6 +41,37 @@ class Engine : Game {
     /// </summary>
     public int TargetedLayer;
 
+    public void MarkTilesDirty(IEnumerable<TilestackCoordinate> dirtyTiles) {
+        foreach (var tile in dirtyTiles) {
+            if (ScreenBounds.ContainsPoint(tile.LayerCoordinate.X, tile.LayerCoordinate.Y)) {
+                screenTilesChanging = true;
+                break;
+            }
+        }
+    }
+    public bool ChangeTile(TilestackCoordinate location, Tile to, bool silent = false) {
+        try {
+            CurrentFloor.Change(location, to, silent);
+
+            if (ScreenBounds.ContainsPoint(location.LayerCoordinate.X, location.LayerCoordinate.Y)) {
+                screenTilesChanging = true;
+            }
+        }
+        catch (Exception e) {
+            Console.WriteLine($"error changing tile: {e}");
+            return false;
+        }
+        return true;
+    }
+    public void ApplyTileChanges() {
+        CurrentFloor.ApplyChanges();
+
+        if (screenTilesChanging) {
+            ScreenTilesChanged = true;
+            screenTilesChanging = false;
+        }
+    }
+
     public override void OnMouseScroll() {
         Scroll = (int)MouseScroll;
     }
@@ -47,20 +82,20 @@ class Engine : Game {
 
         if (TargetedLayer < 0) { TargetedLayer = 0; }
         if (TargetedLayer >= CurrentFloor.Layers) { TargetedLayer = CurrentFloor.TopLayer; }
-        
+
         Scroll = 0;
 
         TickEntities();
 
         // interact
-        if(GetMouse(Mouse.Left).Down) {
-            CurrentFloor.Change(new(TileMouseX, TileMouseY, TargetedLayer + 1), Tile.Meat);
+        if (GetMouse(Mouse.Left).Down) {
+            ChangeTile(new(TileMouseX, TileMouseY, TargetedLayer + 1), Tile.Meat);
         }
 
         // apply all tile changes in a single step
-        CurrentFloor.ApplyChanges();
+        ApplyTileChanges();
     }
-    void TickEntities() {   
+    void TickEntities() {
         foreach (Entity entity in Entities.Entities) {
             entity.Tick();
         }
@@ -78,68 +113,66 @@ class Engine : Game {
         int tileMouseX = MouseX / TileSize;
         int tileMouseY = MouseY / TileSize;
 
-        int layer = 0;
-        foreach (Tilemap map in CurrentFloor.BottomToTop()) {
-            Tile[,] rect = map.GetWithinRect(new(TileScreenMinX, TileScreenMinY), TileScreenMaxX - TileScreenMinX, TileScreenMaxY - TileScreenMinY);
+        if (ScreenTilesChanged) {
+            int layer = 0;
+            foreach (Tilemap map in CurrentFloor.BottomToTop()) {
+                Tile[,] rect = map.GetWithinRect(new(TileScreenMinX, TileScreenMinY), TileScreenMaxX - TileScreenMinX, TileScreenMaxY - TileScreenMinY);
 
-            // draw tiles
-            for (int x = 0; x < rect.GetLength(0); x++) {
-                for (int y = 0; y < rect.GetLength(1); y++) {
-                    Tile tile = rect[x, y];
+                // draw tiles
+                for (int x = 0; x < rect.GetLength(0); x++) {
+                    for (int y = 0; y < rect.GetLength(1); y++) {
+                        Tile tile = rect[x, y];
 
-                    // don't draw empty tiles.
-                    if (tile == Tile.NONE) {
-                        if (layer == 0) {
-                            FillRect(new(x * TileSize, y * TileSize), TileSize, TileSize, Pixel.Empty);
+                        // don't draw empty tiles.
+                        if (tile == Tile.NONE) {
+                            if (layer == 0) {
+                                FillRect(new(x * TileSize, y * TileSize), TileSize, TileSize, Pixel.Empty);
+                            }
+
+                            continue;
                         }
 
-                        continue;
-                    }
-
-                    DrawSprite(new(x * TileSize, y * TileSize), GetSprite(tile, x + TileScreenMinX, y + TileScreenMinY));
-                }
-            }
-            // draw edges 
-            for (int x = 0; x < rect.GetLength(0); x++) {
-                for (int y = 0; y < rect.GetLength(1); y++) {
-                    Tile tile = rect[x, y];
-                    if (tile == Tile.NONE) { continue; }
-
-                    int up = y - 1;
-                    int down = y + 1;
-                    int left = x - 1;
-                    int right = x + 1;
-
-                    if (up < 0) { up = 0; }
-                    while (down >= rect.GetLength(1)) { down--; }
-                    if (left < 0) { left = 0; }
-                    while (right >= rect.GetLength(0)) { right--; }
-
-                    Tile tUp = rect[x, up];
-                    Tile tDown = rect[x, down];
-                    Tile tLeft = rect[left, y];
-                    Tile tRight = rect[right, y];
-
-                    int l = x * TileSize - 1;
-                    int t = y * TileSize - 1;
-                    int r = x * TileSize + TileSize;
-                    int b = y * TileSize + TileSize;
-
-                    if (tUp != tile) { DrawLine(new(l, t), new(r, t), Pixel.Presets.DarkGrey); }
-                    if (tDown != tile) { DrawLine(new(l, b), new(r, b), Pixel.Presets.DarkGrey); }
-                    if (tLeft != tile) { DrawLine(new(l, t), new(l, b), Pixel.Presets.DarkGrey); }
-                    if (tRight != tile) { DrawLine(new(r, t), new(r, b), Pixel.Presets.DarkGrey); }
-
-                    if (layer == TargetedLayer) {
-                        // draw highlight
-                        if (tileMouseX == x && tileMouseY == y) {
-                            DrawRect(new(l, t), TileSize + 1, TileSize + 1, Pixel.Presets.Grey);
-                        }
+                        DrawSprite(new(x * TileSize, y * TileSize), GetSprite(tile, x + TileScreenMinX, y + TileScreenMinY));
                     }
                 }
+                // draw edges 
+                for (int x = 0; x < rect.GetLength(0); x++) {
+                    for (int y = 0; y < rect.GetLength(1); y++) {
+                        Tile tile = rect[x, y];
+                        if (tile == Tile.NONE) { continue; }
+
+                        int up = y - 1;
+                        int down = y + 1;
+                        int left = x - 1;
+                        int right = x + 1;
+
+                        if (up < 0) { up = 0; }
+                        while (down >= rect.GetLength(1)) { down--; }
+                        if (left < 0) { left = 0; }
+                        while (right >= rect.GetLength(0)) { right--; }
+
+                        Tile tUp = rect[x, up];
+                        Tile tDown = rect[x, down];
+                        Tile tLeft = rect[left, y];
+                        Tile tRight = rect[right, y];
+
+                        int l = x * TileSize - 1;
+                        int t = y * TileSize - 1;
+                        int r = x * TileSize + TileSize;
+                        int b = y * TileSize + TileSize;
+
+                        if (tUp != tile) { DrawLine(new(l, t), new(r, t), Pixel.Presets.DarkGrey); }
+                        if (tDown != tile) { DrawLine(new(l, b), new(r, b), Pixel.Presets.DarkGrey); }
+                        if (tLeft != tile) { DrawLine(new(l, t), new(l, b), Pixel.Presets.DarkGrey); }
+                        if (tRight != tile) { DrawLine(new(r, t), new(r, b), Pixel.Presets.DarkGrey); }
+                    }
+                }
+
+                layer++;
             }
 
-            layer++;
+            // reset flag
+            ScreenTilesChanged = false;
         }
     }
     void DrawUI() {
@@ -163,8 +196,6 @@ class Engine : Game {
                 DrawLine(new(ScreenWidth - 16, ScreenHeight - TileSize * (i + 1)), new(ScreenWidth - 16, ScreenHeight - TileSize * i - 1), Pixel.Presets.Mint);
             }
         }
-
-        CurrentFloor.Stack[1].Tiles.DDR();
     }
 
     public override void OnCreate() {
@@ -202,28 +233,25 @@ class Engine : Game {
         CurrentFloor = new(10);
         for (int x = 0; x < 200; x++) {
             for (int y = 0; y < 200; y++) {
-                CurrentFloor.Stack[0].Tiles[new(10 + x, 10 + y)] = Tile.BaseFloorTile;
+                ChangeTile(new(x, y, 0), Tile.BaseFloorTile);
             }
         }
 
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 30; y++) {
                 for (int z = 0; z < 5; z++) {
-                    CurrentFloor.Stack[z][new(18 + x, 6 + y)] = Tile.BaseFloorTile;
+                    ChangeTile(new(18 + x, 6 + y, z), Tile.BaseFloorTile);
                 }
             }
         }
 
         Entities = new();
 
-        CurrentFloor.Stack[1].Tiles[new(0, 0)] = Tile.Meat;
-        CurrentFloor.Stack[2].Tiles[new(0, 0)] = Tile.Meat;
-        CurrentFloor.Stack[1].Tiles[new(+1, 0)] = Tile.Meat;
-        CurrentFloor.Stack[2].Tiles[new(+1, 0)] = Tile.Meat;
+        ChangeTile(new(0, 0, 1), Tile.Meat);
+        ChangeTile(new(0, 0, 2), Tile.Meat);
 
         Entity player = Entity.Construct(
-            new(0, 0, 1), new(0, 0, 2),
-            new(1, 0, 1), new(1, 0, 2)
+            new(0, 0, 1), new(0, 0, 2)
             );
         Action<Entity> centerCamera = e => {
             TilestackCoordinate baseCoordinate = e.BaseCoordinate;
@@ -234,7 +262,7 @@ class Engine : Game {
             TileScreenMaxY = TileScreenMinY + ScreenTileHeight;
         };
 
-        player.TickActions.Add(PlayerMove); 
+        player.TickActions.Add(PlayerMove);
         player.TickActions.Add(centerCamera);
 
         Entities.Entities.Add(player);
@@ -253,7 +281,7 @@ class Engine : Game {
         if (GetKey(Key.A).Down) { xMove += -1; }
         if (GetKey(Key.D).Down) { xMove += +1; }
 
-        if(playerMoved && _playerMoveAccumulator <= PlayerMoveTicks / 2) {
+        if (playerMoved && _playerMoveAccumulator <= PlayerMoveTicks / 2) {
             xMove = 0;
             yMove = 0;
         } // don't persist player movement from a previous move
