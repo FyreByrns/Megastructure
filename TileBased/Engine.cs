@@ -1,4 +1,5 @@
 ﻿global using static TileBased.Engine;
+global using static TileBased.InputStrings;
 
 using PixelEngine;
 
@@ -41,6 +42,21 @@ class Engine : Game {
     /// </summary>
     public int TargetedLayer;
 
+    /// <summary>
+    /// What inputs to update each 
+    /// </summary>
+    public Dictionary<string, Input> BoundInputs = [];
+    public void Bind(string name, Input input) {
+        BoundInputs[name] = input;
+    }
+    public bool GetInput(string name, out Input? input) {
+        return BoundInputs.TryGetValue(name, out input);
+    }
+    public bool Pressed(string name) => GetInput(name, out var i) && i!.Pressed;
+    public bool JustPressed(string name) => GetInput(name, out var i) && i!.JustPressed;
+    public bool Released(string name) => GetInput(name, out var i) && i!.Released;
+    public bool JustReleased(string name) => GetInput(name, out var i) && i!.JustReleased;
+
     public void MarkTilesDirty(IEnumerable<TilestackCoordinate> dirtyTiles) {
         foreach (var tile in dirtyTiles) {
             if (ScreenBounds.ContainsPoint(tile.LayerCoordinate.X, tile.LayerCoordinate.Y)) {
@@ -63,6 +79,16 @@ class Engine : Game {
         }
         return true;
     }
+
+    public record TileShaperParams(Tile Target, TilemapStack world, int RandomSeed);
+    public delegate bool TileShaper(TileShaperParams parameters, TilestackCoordinate start, TilestackCoordinate end, params int[] extraParams);
+    public bool ChangeTiles(TileShaper shape, TilestackCoordinate start, TilestackCoordinate end, Tile to, bool silent = false) {
+        bool anyFailures = false;
+
+        shape(new(to, CurrentFloor, 0), start, end);
+
+        return !anyFailures;
+    }
     public void ApplyTileChanges() {
         CurrentFloor.ApplyChanges();
 
@@ -76,6 +102,8 @@ class Engine : Game {
         Scroll = (int)MouseScroll;
     }
     void Tick(float elapsed) {
+        TickInputs();
+
         if (GetKey(Key.Q).Down) { Scroll = 1; }
         if (GetKey(Key.E).Down) { Scroll = -1; }
         TargetedLayer = CurrentFloor.FindTop(TileMouseX, TileMouseY);
@@ -95,6 +123,80 @@ class Engine : Game {
         // apply all tile changes in a single step
         ApplyTileChanges();
     }
+    void TickInputs() {
+        // for tracking which binds have been consumed by exclusive inputs
+        HashSet<Mouse> consumedMouseBinds = [];
+        HashSet<Scroll> consumedScrollBinds = [];
+        HashSet<Key> consumedKeyBinds = [];
+
+        foreach (var input in BoundInputs.Values) {
+            input.LastState = input.Active;
+
+            bool anyBindsMet = false;
+
+            bool allMouseBindsMet = true;
+            bool allScrollBindsMet = true;
+            bool allKeyBindsMet = true;
+
+            foreach (var m in input.MouseBinds ?? []) {
+                if (consumedMouseBinds.Contains(m)) {
+                    goto inputInactive;
+                }
+
+                if (GetMouse(m).Down) { anyBindsMet = true; }
+                if (!GetMouse(m).Down) {
+                    allMouseBindsMet = false;
+                }
+            }
+            foreach (var s in input.ScrollBinds ?? []) {
+                if (consumedScrollBinds.Contains(s)) {
+                    goto inputInactive;
+                }
+
+                if ((int)s == Scroll) { anyBindsMet = true; }
+                if (!((int)s == Scroll)) {
+                    allScrollBindsMet = false;
+                }
+            }
+            foreach (var k in input.KeyBinds ?? []) {
+                if (consumedKeyBinds.Contains(k)) {
+                    goto inputInactive;
+                }
+
+                if (GetKey(k).Down) { anyBindsMet = true; }
+                if (!GetKey(k).Down) {
+                    allKeyBindsMet = false;
+                }
+            }
+
+            if (anyBindsMet) {
+                if (input.Mode == Input.InputMode.All && allMouseBindsMet && allScrollBindsMet && allKeyBindsMet) {
+                    goto inputActive;
+                }
+
+                if (input.Mode == Input.InputMode.Any) {
+                    goto inputActive;
+                }
+            }
+
+        // end-of-check, if nothing has explicitly set the input state to active,
+        // .. this falls into inputInactive, setting the input to active and continuing.
+        // the only way to activate the input is an explicit goto inputActive.
+        inputInactive:
+            input.Active = false;
+            continue;
+        inputActive:
+            if (input.Exclusive) {
+                foreach (var m in input.MouseBinds ?? [])
+                    consumedMouseBinds.Add(m);
+                foreach (var s in input.ScrollBinds ?? [])
+                    consumedScrollBinds.Add(s);
+                foreach (var k in input.KeyBinds ?? [])
+                    consumedKeyBinds.Add(k);
+            }
+            input.Active = true;
+        }
+    }
     void TickEntities() {
         foreach (Entity entity in Entities.Entities) {
             entity.Tick();
@@ -102,18 +204,18 @@ class Engine : Game {
     }
 
     void Render(float elapsed) {
-        PushDrawTarget(Background);
         DrawTiles();
-        PopDrawTarget();
         DrawSprite(default, Background);
 
         DrawUI();
     }
-    void DrawTiles() {
-        int tileMouseX = MouseX / TileSize;
-        int tileMouseY = MouseY / TileSize;
+    void DrawTiles(bool force = false) {
+        if (force || ScreenTilesChanged) {
+            PushDrawTarget(Background);
 
-        if (ScreenTilesChanged) {
+            int tileMouseX = MouseX / TileSize;
+            int tileMouseY = MouseY / TileSize;
+
             int layer = 0;
             foreach (Tilemap map in CurrentFloor.BottomToTop()) {
                 Tile[,] rect = map.GetWithinRect(new(TileScreenMinX, TileScreenMinY), TileScreenMaxX - TileScreenMinX, TileScreenMaxY - TileScreenMinY);
@@ -173,6 +275,7 @@ class Engine : Game {
 
             // reset flag
             ScreenTilesChanged = false;
+            PopDrawTarget();
         }
     }
     void DrawUI() {
@@ -199,6 +302,8 @@ class Engine : Game {
     }
 
     public override void OnCreate() {
+        MOVE_UP.Bind(new(Key.W));
+
         TileScreenMaxX = ScreenTileWidth;
         TileScreenMaxY = ScreenTileHeight;
 
@@ -253,14 +358,15 @@ class Engine : Game {
         Entity player = Entity.Construct(
             new(0, 0, 1), new(0, 0, 2)
             );
-        Action<Entity> centerCamera = e => {
+
+        void centerCamera(Entity e) {
             TilestackCoordinate baseCoordinate = e.BaseCoordinate;
 
             TileScreenMinX = baseCoordinate.LayerCoordinate.X - ScreenTileWidth / 2;
             TileScreenMinY = baseCoordinate.LayerCoordinate.Y - ScreenTileHeight / 2;
             TileScreenMaxX = TileScreenMinX + ScreenTileWidth;
             TileScreenMaxY = TileScreenMinY + ScreenTileHeight;
-        };
+        }
 
         player.TickActions.Add(PlayerMove);
         player.TickActions.Add(centerCamera);
@@ -276,7 +382,8 @@ class Engine : Game {
     public void PlayerMove(Entity entity) {
         _playerMoveAccumulator++;
 
-        if (GetKey(Key.W).Down) { yMove += -1; }
+        if(MOVE_UP.Pressed()) { yMove += -1; }
+        //if (GetKey(Key.W).Down) { yMove += -1; }
         if (GetKey(Key.S).Down) { yMove += +1; }
         if (GetKey(Key.A).Down) { xMove += -1; }
         if (GetKey(Key.D).Down) { xMove += +1; }
