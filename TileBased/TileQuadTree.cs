@@ -85,6 +85,10 @@ class TileQuadTree {
                 } // set the tile
                 else { // if the quad has no leaves and is not as small as possible
                     Subdivide();
+                    TL!.Tile = Tile;
+                    TR!.Tile = Tile;
+                    BL!.Tile = Tile;
+                    BR!.Tile = Tile;
                 } // subdivide
             }
 

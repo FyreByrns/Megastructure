@@ -57,6 +57,9 @@ class Engine : Game {
     public bool Released(string name) => GetInput(name, out var i) && i!.Released;
     public bool JustReleased(string name) => GetInput(name, out var i) && i!.JustReleased;
 
+    public Tool CurrentTool = new BasicTileCursor();
+    public bool ShowToolInputHints = true;
+
     public void MarkTilesDirty(IEnumerable<TilestackCoordinate> dirtyTiles) {
         foreach (var tile in dirtyTiles) {
             if (ScreenBounds.ContainsPoint(tile.LayerCoordinate.X, tile.LayerCoordinate.Y)) {
@@ -103,10 +106,7 @@ class Engine : Game {
     }
     void Tick(float elapsed) {
         TickInputs();
-
-        if (GetKey(Key.Q).Down) { Scroll = 1; }
-        if (GetKey(Key.E).Down) { Scroll = -1; }
-        TargetedLayer = CurrentFloor.FindTop(TileMouseX, TileMouseY);
+        TickTool();
 
         if (TargetedLayer < 0) { TargetedLayer = 0; }
         if (TargetedLayer >= CurrentFloor.Layers) { TargetedLayer = CurrentFloor.TopLayer; }
@@ -114,11 +114,6 @@ class Engine : Game {
         Scroll = 0;
 
         TickEntities();
-
-        // interact
-        if (GetMouse(Mouse.Left).Down) {
-            ChangeTile(new(TileMouseX, TileMouseY, TargetedLayer + 1), Tile.Meat);
-        }
 
         // apply all tile changes in a single step
         ApplyTileChanges();
@@ -196,6 +191,9 @@ class Engine : Game {
             }
             input.Active = true;
         }
+    }
+    void TickTool() {
+        CurrentTool!.Tick();
     }
     void TickEntities() {
         foreach (Entity entity in Entities.Entities) {
@@ -289,6 +287,17 @@ class Engine : Game {
         // cursor
         Draw((MouseX / TileSize * TileSize) + TileSize / 2, (MouseY / TileSize * TileSize) + TileSize / 2, Pixel.Presets.Mint);
 
+        // tool hint
+        DrawText(new(1, 1), CurrentTool!.Hint, Pixel.Presets.White);
+        // tool actions
+        if (ShowToolInputHints) {
+            int actionIndex = 0;
+            foreach (var (input, action) in CurrentTool.HintsByInput) {
+                DrawText(new(2, 8 + 8 * actionIndex), $"{input}: {action}", Pixel.Presets.White);
+                actionIndex++;
+            }
+        }
+
         // line
         //DrawLine(new((MouseX / TileSize * TileSize) + TileSize / 2, (MouseY / TileSize * TileSize) + TileSize / 2), new(ScreenWidth / 2, ScreenHeight / 2), Pixel.Presets.White);
 
@@ -302,7 +311,19 @@ class Engine : Game {
     }
 
     public override void OnCreate() {
+        INTERACT_WORLD_MAIN.Bind(new(Mouse.Left));
+        INTERACT_WORLD_SECONDARY.Bind(new(Mouse.Right));
+
         MOVE_UP.Bind(new(Key.W));
+        MOVE_DOWN.Bind(new(Key.S));
+        MOVE_LEFT.Bind(new(Key.A));
+        MOVE_RIGHT.Bind(new(Key.D));
+
+        LAYER_UP.Bind(new(PixelEngine.Scroll.Down, Key.Q) { Mode = Input.InputMode.Any });
+        LAYER_DOWN.Bind(new(PixelEngine.Scroll.Up, Key.E) { Mode = Input.InputMode.Any });
+
+        MODIFIER_MAIN.Bind(new(Key.Control));
+        MODIFIER_SECONDARY.Bind(new(Key.SemiColon));
 
         TileScreenMaxX = ScreenTileWidth;
         TileScreenMaxY = ScreenTileHeight;
@@ -382,11 +403,10 @@ class Engine : Game {
     public void PlayerMove(Entity entity) {
         _playerMoveAccumulator++;
 
-        if(MOVE_UP.Pressed()) { yMove += -1; }
-        //if (GetKey(Key.W).Down) { yMove += -1; }
-        if (GetKey(Key.S).Down) { yMove += +1; }
-        if (GetKey(Key.A).Down) { xMove += -1; }
-        if (GetKey(Key.D).Down) { xMove += +1; }
+        if (MOVE_UP.Pressed()) { yMove += -1; }
+        if (MOVE_DOWN.Pressed()) { yMove += +1; }
+        if (MOVE_LEFT.Pressed()) { xMove += -1; }
+        if (MOVE_RIGHT.Pressed()) { xMove += +1; }
 
         if (playerMoved && _playerMoveAccumulator <= PlayerMoveTicks / 2) {
             xMove = 0;

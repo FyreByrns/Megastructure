@@ -3,10 +3,19 @@
 static class InputStrings {
     #region base bind names
 
+    public const string INTERACT_WORLD_MAIN = "interact_world_main";
+    public const string INTERACT_WORLD_SECONDARY = "interact_world_secondary";
+
     public const string MOVE_UP = "move_up";
     public const string MOVE_DOWN = "move_down";
     public const string MOVE_LEFT = "move_left";
     public const string MOVE_RIGHT = "move_right";
+
+    public const string LAYER_UP = "layer_up";
+    public const string LAYER_DOWN = "layer_down";
+
+    public const string MODIFIER_MAIN = "modifier_main";
+    public const string MODIFIER_SECONDARY = "modifier_secondary";
 
     #endregion base bind names
 
