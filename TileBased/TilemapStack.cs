@@ -10,7 +10,7 @@ class TilemapStack {
             return Stack[index.Elevation][index.LayerCoordinate];
         }
         set {
-            if (index.Elevation >= Layers) {
+            if (index.Elevation >= Layers || index.Elevation < 0) {
                 return;
             }
 
