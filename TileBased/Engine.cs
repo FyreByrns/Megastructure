@@ -4,6 +4,9 @@ global using static TileBased.InputStrings;
 using PixelEngine;
 
 using Hexa.NET.ImGui;
+using System.Text;
+using Hexa.NET.Utilities.Text;
+using System.Numerics;
 
 namespace TileBased;
 
@@ -207,10 +210,8 @@ class Engine : Game {
         DrawTiles();
         DrawSprite(default, Background);
 
-        //ImGui.ShowDemoWindow();
-
-        ImGui.Begin("WOAGFG");
-        ImGui.Text("testing");
+        ImGui.Begin("a window");
+        ImGui.Button("wheee");
         ImGui.End();
 
         DrawUI();
@@ -295,19 +296,76 @@ class Engine : Game {
         // cursor
         Draw((MouseX / TileSize * TileSize) + TileSize / 2, (MouseY / TileSize * TileSize) + TileSize / 2, Pixel.Presets.Mint);
 
-        // tool hint
-        DrawText(new(1, 1), CurrentTool!.Hint, Pixel.Presets.White);
-        // tool actions
-        if (ShowToolInputHints) {
-            int actionIndex = 0;
-            foreach (var (input, action) in CurrentTool.HintsByInput) {
-                DrawText(new(2, 8 + 8 * actionIndex), $"{input}: {action}", Pixel.Presets.White);
-                actionIndex++;
-            }
-        }
+        var fgDrawList = ImGui.GetForegroundDrawList();
+        int tsScale = TileSize * PixWidth;
+        var mpA = new System.Numerics.Vector2(MouseX / TileSize * tsScale, MouseY / TileSize * tsScale);
+        var mpB = mpA + new System.Numerics.Vector2(tsScale);
+        fgDrawList.AddRect(mpA, mpB, 0xFFFFFFFF);
 
-        // line
-        //DrawLine(new((MouseX / TileSize * TileSize) + TileSize / 2, (MouseY / TileSize * TileSize) + TileSize / 2), new(ScreenWidth / 2, ScreenHeight / 2), Pixel.Presets.White);
+        //fgDrawList.AddText(mpB, 0x88FF22FF, $"{TargetedLayer}");
+
+        ImGui.SetNextWindowBgAlpha(1);
+        ImGui.SetNextWindowSize(new(0, 0));
+        ImGui.SetNextWindowPos(new(0, 0));
+        unsafe {
+            byte* name = stackalloc byte[5];
+            bool open = true;
+            StrBuilder n = new(name, 5);
+            n.Reset();
+            n.Append("tool");
+            ImGui.Begin(n, &open, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs);
+
+            byte* toolHintString = stackalloc byte[256];
+            StrBuilder builder = new(toolHintString, 256);
+            builder.Reset();
+
+            // tool hint
+            builder.Append(CurrentTool!.Hint);
+            builder.Append('\n');
+            // tool actions
+            if (ShowToolInputHints) {
+                foreach (var (input, action) in CurrentTool.HintsByInput) {
+                    builder.Append(input);
+                    builder.Append(": "u8);
+                    builder.Append(action);
+                    builder.Append("\n"u8);
+                }
+            }
+
+            builder.End();
+
+            ImGui.Text(builder);
+        }
+        ImGui.End();
+
+        ImGui.SetNextWindowSize(new(0, 0));
+        ImGui.Begin("input list");
+        unsafe {
+            byte* buf = stackalloc byte[256];
+            StrBuilder b = new(buf, 256);
+            b.Reset();
+            foreach (var (name, input) in BoundInputs) {
+                b.Append(name);
+                b.Append('\n');
+                foreach (var mouse in input.MouseBinds ?? []) {
+                    b.Append('\t');
+                    b.Append(mouse.ToString());
+                    b.Append('\n');
+                }
+                foreach (var scroll in input.ScrollBinds ?? []) {
+                    b.Append('\t');
+                    b.Append(scroll.ToString());
+                    b.Append('\n');
+                }
+                foreach (var key in input.KeyBinds ?? []) {
+                    b.Append('\t');
+                    b.Append(key.ToString());
+                    b.Append('\n');
+                }
+            }
+            ImGui.Text(b);
+        }
+        ImGui.End();
 
         // stack at cursor
         for (int i = 0; i < CurrentFloor.Layers; i++) {
