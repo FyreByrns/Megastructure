@@ -3,6 +3,8 @@ global using static TileBased.InputStrings;
 
 using PixelEngine;
 
+using Hexa.NET.ImGui;
+
 namespace TileBased;
 
 class Engine : Game {
@@ -204,6 +206,12 @@ class Engine : Game {
     void Render(float elapsed) {
         DrawTiles();
         DrawSprite(default, Background);
+
+        //ImGui.ShowDemoWindow();
+
+        ImGui.Begin("WOAGFG");
+        ImGui.Text("testing");
+        ImGui.End();
 
         DrawUI();
     }

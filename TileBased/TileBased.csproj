@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Hexa.NET.ImGui" Version="2.2.9" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Pixel-Engine\PixelEngine\PixelEngine.csproj" />
   </ItemGroup>
 
