@@ -1,5 +1,4 @@
-﻿global using v2 = PixelEngine.Vector2;
-global using p2 = PixelEngine.Point;
+﻿global using p2 = PixelEngine.Point;
 
 namespace TileBased;
 
