@@ -12,6 +12,18 @@ using PixelEngine;
 
 namespace TileBased;
 
+/* === === SHORT-TERM TODO === === 
+(DO THESE BEFORE OTHER THINGS)
+(DO ALL OF THESE BEFORE ADDING MORE)
+
+[ ] Tile Quadtree serializing / deserializing
+[ ] Asset loading (sprites specifically)
+
+[ ] Server / Client architecture
+
+
+ */
+
 class Engine : Game {
     static Engine _instance;
     public static Engine Instance {
