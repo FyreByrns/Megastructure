@@ -305,12 +305,8 @@ class Engine : Game {
         imDrawRect(TileSpaceToScreen(TileMouseX - TileScreenMinX), TileSpaceToScreen(TileMouseY - TileScreenMinY), ScreenTileSize, ScreenTileSize, Pixel.Presets.Green, rounding: 2);
 
         unsafe {
-            //ImGui.GetStyle().Colors[(int)ImGuiCol.Border] = new(1, 0, 1, 1);
-
             imBegin("tool", alpha: 1, allowResizing: false, windowFlags: [wf.NoMove, wf.NoTitleBar, wf.NoDecoration, wf.NoInputs]);
 
-            imSprite(Background);
-            
             byte* toolHintString = stackalloc byte[256];
             StrBuilder builder = new(toolHintString, 256);
             builder.Reset();
@@ -329,13 +325,12 @@ class Engine : Game {
             }
 
             builder.End();
-
             ImGui.Text(builder);
-        }
-        imEnd();
 
-        imBegin("input list", new(0, imPreviousBottom), new(imPreviousWidth, 0), allowRepositioning: true, allowResizing: false);
-        unsafe {
+            imEnd();
+
+            imBegin("input list", new(0, imPreviousBottom), new(imPreviousWidth, 0), allowRepositioning: true, allowResizing: false);
+
             byte* buf = stackalloc byte[256];
             StrBuilder b = new(buf, 256);
             b.Reset();
@@ -358,9 +353,11 @@ class Engine : Game {
                     b.Append('\n');
                 }
             }
+            b.End();
             ImGui.Text(b);
+
+            imEnd();
         }
-        imEnd();
 
         // stack at cursor
         for (int i = 0; i < CurrentFloor.Layers; i++) {

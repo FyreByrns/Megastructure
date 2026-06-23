@@ -4,6 +4,8 @@ using PixelEngine;
 namespace TileBased;
 
 static class ImGuiHelper {
+    public static nv2 ScreenMouse => ImGui.GetMousePos();
+
     public static float imPreviousTop = 0;
     public static float imPreviousLeft = 0;
     public static float imPreviousRight = 0;
@@ -16,7 +18,14 @@ static class ImGuiHelper {
     public static ImDrawListPtr imBackground => ImGui.GetBackgroundDrawList();
     public static ImDrawListPtr imWindow => ImGui.GetWindowDrawList();
 
-    public static void imDrawRect(float x, float y, float width, float height, PixelEngine.Pixel colour, float rounding = 0, bool filled = false, bool foreground = false, bool window = false) {
+    public static void imDrawText(string text, float x, float y, Pixel colour, bool filled = false, bool foreground = false, bool window = false) {
+        ImDrawListPtr target = imBackground;
+        if (foreground) { target = imForeground; }
+        if (window) { target = imWindow; }
+
+        target.AddText(new(x, y), colour, text);
+    }
+    public static void imDrawRect(float x, float y, float width, float height, Pixel colour, float rounding = 0, bool filled = false, bool foreground = false, bool window = false) {
         ImDrawListPtr target = imBackground;
         if (foreground) { target = imForeground; }
         if (window) { target = imWindow; }
@@ -28,12 +37,30 @@ static class ImGuiHelper {
             target.AddRect(new(x, y), new(x + width, y + height), colour, rounding);
         }
     }
+    public static void imDrawLine(float xA, float yA, float xB, float yB, Pixel colour, float width = 1, bool foreground = false, bool window = false) {
+        ImDrawListPtr target = imBackground;
+        if (foreground) { target = imForeground; }
+        if (window) { target = imWindow; }
 
-    public static void imSprite(Sprite sprite) {
+        target.AddLine(new(xA, yA), new(xB, yB), colour, width);
+    }
+    public static void imDrawSprite(Sprite sprite, float x, float y, float xScale = 1, float yScale = 1, bool foreground = false, bool window = false) {
+        ImDrawListPtr target = imBackground;
+        if (foreground) { target = imForeground; }
+        if (window) { target = imWindow; }
+
         sprite.MakeGPUTexture();
         sprite.UpdateGPUTexture();
         unsafe {
-            ImGui.Image(new(texId: sprite.GPUTextureHandle), new(sprite.Width, sprite.Height));
+            target.AddImage(new(texId: sprite.GPUTextureHandle), new(x, y), new(x + sprite.Width * xScale, y + sprite.Height * yScale));
+        }
+    }
+
+    public static void imSprite(Sprite sprite, float xScale = 1, float yScale = 1) {
+        sprite.MakeGPUTexture();
+        sprite.UpdateGPUTexture();
+        unsafe {
+            ImGui.Image(new(texId: sprite.GPUTextureHandle), new(sprite.Width * xScale, sprite.Height * yScale));
         }
     }
 
@@ -60,5 +87,9 @@ static class ImGuiHelper {
         imPreviousRight = imPreviousLeft + imPreviousWidth;
         imPreviousBottom = imPreviousTop + imPreviousHeight;
         ImGui.End();
+    }
+
+    public static void imSetColour(ImGuiCol target, Pixel colour) {
+        ImGui.GetStyle().Colors[(int)target] = new(colour.R / 255f, colour.G / 255f, colour.B / 255f, colour.A / 255f);
     }
 }
