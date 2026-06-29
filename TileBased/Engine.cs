@@ -16,7 +16,7 @@ namespace TileBased;
 (DO THESE BEFORE OTHER THINGS)
 (DO ALL OF THESE BEFORE ADDING MORE)
 
-[ ] Tile Quadtree serializing / deserializing
+[X] Tile Quadtree serializing / deserializing
 [ ] Asset loading (sprites specifically)
 
 [ ] Server / Client architecture

@@ -1,4 +1,6 @@
-﻿namespace TileBased;
+﻿using System.Numerics;
+
+namespace TileBased;
 
 class TileQuadTree {
     /*
@@ -20,8 +22,9 @@ class TileQuadTree {
 
     public Tile Tile = Tile.NONE;
     TileQuadTree? TL, TR, BL, BR;
-    public bool HasLeaves => !HasNoLeaves;
-    public bool HasNoLeaves => TL == null || TR == null || BL == null || BR == null;
+    public TileQuadTree?[] Children => [TL, TR, BL, BR];
+    public bool HasChildren => !HasNoChildren;
+    public bool HasNoChildren => TL == null || TR == null || BL == null || BR == null;
 
     public IntegerAABB Bounds;
 
@@ -40,7 +43,7 @@ class TileQuadTree {
             return false;
         } // can't divide
 
-        if (HasNoLeaves) { // only subdivide if there are no leaves yet
+        if (HasNoChildren) { // only subdivide if there are no leaves yet
             TL = new(new(Bounds.Left, Bounds.Top, Bounds.MidX, Bounds.MidY));
             TR = new(new(Bounds.MidX, Bounds.Top, Bounds.Right, Bounds.MidY));
             BL = new(new(Bounds.Left, Bounds.MidY, Bounds.MidX, Bounds.Bottom));
@@ -56,7 +59,7 @@ class TileQuadTree {
 
 
         if (ContainsPoint(coordinate)) { // if the coordinate belongs to this quad
-            if (HasNoLeaves) { // if there are no leaves
+            if (HasNoChildren) { // if there are no leaves
                 return Tile;
             } // just return the contained tile
             // .. otherwise query subquads
@@ -71,9 +74,9 @@ class TileQuadTree {
 
     public bool SetTile(TilemapCoordinate coordinate, Tile tile) {
         if (ContainsPoint(coordinate)) { // if the coordinate belongs to this quad
-            if (HasNoLeaves) { // if this quad has no leaves
+            if (HasNoChildren) { // if this quad has no leaves
                 if (Tile == tile) { // if the tile is already the tile
-                    Console.WriteLine($"Quad hit with {tile} at ({coordinate.X}, {coordinate.Y}) in [({Bounds.Left}, {Bounds.Top}), ({Bounds.Right}, {Bounds.Bottom}) w{Bounds.Width}]");
+                    //Console.WriteLine($"Quad hit with {tile} at ({coordinate.X}, {coordinate.Y}) in [({Bounds.Left}, {Bounds.Top}), ({Bounds.Right}, {Bounds.Bottom}) w{Bounds.Width}]");
                     return true;
                 } // don't do anything, it's already good
 
@@ -114,15 +117,15 @@ class TileQuadTree {
     /// Returns whether or not a collapse occurred. 
     /// </summary>
     public bool Collapse() {
-        if (HasNoLeaves) { return false; }
+        if (HasNoChildren) { return false; }
 
-        if (HasLeaves) {
+        if (HasChildren) {
             TL!.Collapse();
             TR!.Collapse();
             BL!.Collapse();
             BR!.Collapse();
 
-            if (TL.HasLeaves || TR.HasLeaves || BL.HasLeaves || BR.HasLeaves) {
+            if (TL.HasChildren || TR.HasChildren || BL.HasChildren || BR.HasChildren) {
                 return false;
             }
 
@@ -143,7 +146,69 @@ class TileQuadTree {
         return false;
     }
 
+    public TileQuadTree() { }
     public TileQuadTree(IntegerAABB bounds) {
         Bounds = bounds;
+    }
+
+    // structure:
+    // 4 ints bounds
+    // 1 bool whether children exist
+    // .. conditional repeat for each child
+    // .. conditional 1 int tile
+    public byte[] Serialize() {
+        BitPile data = new();
+        WriteTo(data);
+        return [.. data.Bytes()];
+    }
+    void WriteTo(BitPile data) {
+        data.Write(Bounds.Left);
+        data.Write(Bounds.Top);
+        data.Write(Bounds.Right);
+        data.Write(Bounds.Bottom);
+        data.Write(HasChildren);
+
+        if (HasChildren) {
+            foreach (var child in Children) {
+                child!.WriteTo(data);
+            }
+        }
+        else {
+            data.Write<int>((int)Tile);
+        }
+    }
+
+    public static TileQuadTree Deserialize(byte[] bytes) {
+        BitPile data = new(bytes);
+
+        TileQuadTree result = new();
+        int index = 0;
+        result.ReadFrom(data, ref index);
+
+        return result;
+    }
+    void ReadFrom(BitPile data, ref int index) {
+        int left = data.ReadAndAdvance<int>(ref index);
+        int top = data.ReadAndAdvance<int>(ref index);
+        int right = data.ReadAndAdvance<int>(ref index);
+        int bottom = data.ReadAndAdvance<int>(ref index);
+        bool hasChildren = data.ReadAndAdvance(ref index);
+
+        Bounds = new(left, top, right, bottom);
+        if (hasChildren) {
+            TL = new();
+            TR = new();
+            BL = new();
+            BR = new();
+        }
+
+        if (HasChildren) {
+            foreach (var child in Children) {
+                child!.ReadFrom(data, ref index);
+            }
+        }
+        else {
+            Tile = (Tile)data.ReadAndAdvance<int>(ref index);
+        }
     }
 }
