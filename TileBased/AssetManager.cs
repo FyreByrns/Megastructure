@@ -10,8 +10,8 @@ static class AssetManager {
         }
     }
 
-    public static bool FileExists(string path, string name) {
-        return File.Exists($"{path}/{name}");
+    public static bool FileExists(string path) {
+        return File.Exists(path);
     }
     public static string GetAssetPath(string path, string name) {
         return $"{AssetPath}/{path}/{name}";

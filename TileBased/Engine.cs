@@ -438,6 +438,9 @@ class Engine : Game {
     }
     static void LoadTileSprites() {
         foreach (var tile in Enum.GetValues<Tile>()) {
+            if(!FileExists(GetTilePath(tile))) {
+                Console.WriteLine($"!! no tile graphics for {tile} !!");
+            }
             RegisterTileGraphic(tile, Sprite.Load(GetTilePath(tile)));
         }
     }
