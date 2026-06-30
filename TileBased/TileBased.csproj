@@ -18,4 +18,10 @@
     <ProjectReference Include="..\..\Pixel-Engine\PixelEngine\PixelEngine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

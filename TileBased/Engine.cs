@@ -1,13 +1,14 @@
 ﻿global using static TileBased.Engine;
 global using static TileBased.ImGuiHelper;
 global using static TileBased.InputStrings;
+global using static TileBased.AssetManager;
+
 global using nv2 = System.Numerics.Vector2;
 global using v2 = PixelEngine.Vector2;
 global using wf = Hexa.NET.ImGui.ImGuiWindowFlags;
 
 using Hexa.NET.ImGui;
 using Hexa.NET.Utilities.Text;
-using HexaGen.Runtime;
 using PixelEngine;
 
 namespace TileBased;
@@ -228,11 +229,6 @@ class Engine : Game {
         DrawTiles();
         DrawSprite(default, Background);
 
-        imBegin("a window");
-        if (ImGui.Button("wheee"))
-            Console.WriteLine("button pressed!");
-        imEnd();
-
         DrawUI();
     }
     void DrawTiles(bool force = false) {
@@ -398,31 +394,7 @@ class Engine : Game {
         TileScreenMaxX = ScreenTileWidth;
         TileScreenMaxY = ScreenTileHeight;
 
-        Sprite floor = new(6, 6);
-        Pixel colourA = new(30, 30, 60);
-        Pixel colourB = new(30, 60, 30);
-
-        Instance.PushDrawTarget(floor);
-
-        for (int x = 0; x < floor.Width; x++) {
-            for (int y = 0; y < floor.Height; y++) {
-                if ((x / 3 + y / 3) % 2 == 0) {
-                    Draw(x, y, colourA);
-                }
-                else {
-                    Draw(x, y, colourB);
-                }
-            }
-        }
-
-        RegisterTileGraphic(Tile.BaseFloorTile, floor);
-        Instance.PopDrawTarget();
-
-        Sprite meat = new(3, 3);
-        Instance.PushDrawTarget(meat);
-        Instance.Clear(Pixel.Presets.DarkRed);
-        RegisterTileGraphic(Tile.Meat, meat);
-        Instance.PopDrawTarget();
+        LoadTileSprites();
 
         Background = new(ScreenWidth, ScreenHeight);
 
@@ -463,6 +435,11 @@ class Engine : Game {
         player.TickActions.Add(centerCamera);
 
         Entities.Entities.Add(player);
+    }
+    static void LoadTileSprites() {
+        foreach (var tile in Enum.GetValues<Tile>()) {
+            RegisterTileGraphic(tile, Sprite.Load(GetTilePath(tile)));
+        }
     }
 
     bool playerMoved = false;
